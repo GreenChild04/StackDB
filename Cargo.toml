@@ -1,0 +1,18 @@
+[package]
+name = "stack-db"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "A (basically) infinitely stacking database that has both readonly safety and incredible write speeds at the same time."
+authors = [ "GreenChild04" ]
+repository = "https://github.com/GreenChild04/stack-db"
+keywords = [ "database", "stack", "readonly-history" ]
+categories = [ "database" ]
+
+[lib]
+name = "stack_db"
+path = "src/lib.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
