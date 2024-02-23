@@ -1,7 +1,10 @@
 use std::{io::{BufWriter, Read, Seek, Write}, ops::Range};
 use crate::errors::Error;
 
-/// Holds specific options for the writing part of the layer
+// Holds a range that may be partially completed
+pub struct ParitialRange(pub Box<[Range<u64>]>);
+
+/// Holds specific values for the writing function of the layer
 #[derive(Debug)]
 struct MemWriter<'l> {
     /// The current write cursor to speed up sequential qrites
@@ -44,13 +47,14 @@ impl<'l,  File: Write + Read + Seek> Layer<'l, File> {
 
     /// Checks for collisions on the current layer
     #[inline]
-    pub fn check_collisions(&self, range: Range<u64>) -> Vec<Range<u64>> {
+    pub fn check_collisions(&self, range: Range<u64>) -> ParitialRange {
         let map = if let Some(ref writer) = self.writer { &writer.map } else { panic!("will implement disk layers and disk reads later") };
 
-        map.iter() // I have no clue how this works
+        let ranges: Box<[_]> = map.iter() // I have no clue how this works
             .filter(|(r, _)| range.start < r.end && r.start < range.end)
             .map(|(r, _)| range.start.max(r.start)..std::cmp::min(range.end, r.end))
-            .collect()
+            .collect();
+        ParitialRange(ranges)
     }
 
     /// Writes to the mem-layer without checking for collisions
