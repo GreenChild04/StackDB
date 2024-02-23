@@ -2,6 +2,7 @@
 pub enum Error {
     IOError(std::io::Error),
     DBCorrupt(Box<Error>),
+    ReadOnly,
 }
 
 impl From<std::io::Error> for Error {
