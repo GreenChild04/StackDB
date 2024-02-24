@@ -3,6 +3,7 @@ pub enum Error {
     IOError(std::io::Error),
     DBCorrupt(Box<Error>),
     ReadOnly,
+    InvalidLayer,
 }
 
 impl From<std::io::Error> for Error {

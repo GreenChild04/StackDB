@@ -1,8 +1,11 @@
 use std::{borrow::Cow, io::{BufWriter, Read, Seek, Write}, ops::Range};
 use crate::errors::Error;
 
-// Holds a range that may be partially completed
-pub struct ParitialRange(pub Box<[Range<u64>]>);
+/// Represents bytes that are either owned or borrowed
+pub type Bytes<'l> = Cow<'l, [u8]>;
+
+// Holds a range of data that may be partially completed
+pub struct ParitialRange<'l>(pub Box<[(Range<u64>, Bytes<'l>)]>);
 
 /// Holds specific values for the writing function of the layer
 #[derive(Debug)]
@@ -10,12 +13,12 @@ struct MemWriter<'l> {
     /// The current write cursor to speed up sequential qrites
     pub write_cursor: (u64, usize),
     /// The map that holds all the writes to the layer and their location mapping in the database
-    pub map: Vec<(Range<u64>, Cow<'l, [u8]>)>, // change this to a linked list if too slow
+    pub map: Vec<(Range<u64>, Bytes<'l>)>, // change this to a linked list if too slow
 }
 
 /// Represents a layer (either in-memory or in disk) in the stack-db that *stacks*
 #[derive(Debug)]
-pub struct Layer<'l, File: Write + Read + Seek> {
+pub struct Layer<'l, Stream: Write + Read + Seek> {
     /// The bounds of the layer; the range of the layer
     pub bounds: Option<Range<u64>>,
     /// Optional writer (for mem-layers only as disk layers are read-only)
@@ -27,12 +30,12 @@ pub struct Layer<'l, File: Write + Read + Seek> {
     /// The current read cursor to speed up sequential reads
     pub read_cursor: (u64, usize),
     /// The underlying file reader/writer
-    file: File,
+    stream: Stream,
 }
 
-impl<'l,  File: Write + Read + Seek> Layer<'l, File> {
+impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     #[inline]
-    pub fn new(file: File) -> Self {
+    pub fn new(stream: Stream) -> Self {
         Self {
             bounds: None,
             writer: Some(MemWriter {
@@ -41,27 +44,55 @@ impl<'l,  File: Write + Read + Seek> Layer<'l, File> {
             }),
             size: 0,
             read_cursor: (0, 0),
-            file,
+            stream,
         }
+    }
+
+    #[inline]
+    pub fn load(mut stream: Stream) -> Result<Self, Error> {
+        let mut buffer = [0u8; u64::BITS as usize/8 * 3]; // buffer for three `u64` values: `size`, `bounds.start`, `bounds.end`
+        stream.read_exact(&mut buffer)?;
+
+        #[inline]
+        fn get_u64(buffer: &[u8], range: Range<usize>) -> Result<u64, Error> {
+            Ok(u64::from_be_bytes(
+                if let Some(Ok(x)) = buffer.get(range).map(|x| x.try_into())
+                    { x }
+                else { 
+                    return Err(Error::DBCorrupt(Box::new(Error::InvalidLayer)));
+                }
+            ))
+        }
+
+        // read metadata; return corruption error if failure
+        let size = get_u64(&buffer, 0..8)?;
+        let bounds = get_u64(&buffer, 8..16)?..get_u64(&buffer, 16..24)?;
+
+        Ok(Self {
+            bounds: Some(bounds),
+            writer: None,
+            size,
+            read_cursor: (0, 0),
+            stream,
+        })
     }
 
     /// Checks for collisions on the current layer
     #[inline]
-    pub fn check_collisions(&self, range: Range<u64>) -> ParitialRange {
+    pub fn check_collisions(&self, range: Range<u64>) -> Box<[Range<u64>]>{
         let map = if let Some(ref writer) = self.writer { &writer.map } else { panic!("will implement disk layers and disk reads later") };
 
-        let ranges: Box<[_]> = map.iter() // I have no clue how this works
+        map.iter() // I have no clue how this works
             .filter(|(r, _)| range.start < r.end && r.start < range.end)
             .map(|(r, _)| range.start.max(r.start)..std::cmp::min(range.end, r.end))
-            .collect();
-        ParitialRange(ranges)
+            .collect()
     }
 
     /// Writes to the mem-layer without checking for collisions
     ///
     /// **WARNING:** the layer will be corrupt if there are any collisions; this function is meant to be used internally
     #[inline]
-    pub fn write_unchecked(&mut self, idx: u64, data: Cow<'l, [u8]>) -> Result<(), Error> {
+    pub fn write_unchecked(&mut self, idx: u64, data: Bytes<'l>) -> Result<(), Error> {
         // cannot write on read-only
         let writer = if let Some(ref mut writer) = self.writer { writer } else { return Err(Error::ReadOnly) };
         let range = idx..idx+data.len() as u64;
@@ -93,13 +124,12 @@ impl<'l,  File: Write + Read + Seek> Layer<'l, File> {
     }
 
     /// Moves the laer from memory to disk
-    #[inline]
     pub fn flush(self) -> Result<(), Error> {
         const BUFFER_SIZE: usize = 1024 * 1024 * 4; // 4MiB buffer size
         
         // don't flush if it's an empty layer or in read-only mode
         let (bounds, map) = if let (Some(b), Some(w)) = (self.bounds, self.writer) { (b, w.map) } else {  return Ok(()) };
-        let mut file = BufWriter::with_capacity(BUFFER_SIZE, self.file);
+        let mut file = BufWriter::with_capacity(BUFFER_SIZE, self.stream);
 
         // write the bounds & size of the layer
         file.write_all(&self.size.to_be_bytes())?;
