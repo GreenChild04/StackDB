@@ -1,4 +1,4 @@
-use std::{io::{BufWriter, Read, Seek, Write}, ops::Range};
+use std::{borrow::Cow, io::{BufWriter, Read, Seek, Write}, ops::Range};
 use crate::errors::Error;
 
 // Holds a range that may be partially completed
@@ -10,7 +10,7 @@ struct MemWriter<'l> {
     /// The current write cursor to speed up sequential qrites
     pub write_cursor: (u64, usize),
     /// The map that holds all the writes to the layer and their location mapping in the database
-    pub map: Vec<(Range<u64>, &'l [u8])>, // change this to a linked list if too slow
+    pub map: Vec<(Range<u64>, Cow<'l, [u8]>)>, // change this to a linked list if too slow
 }
 
 /// Represents a layer (either in-memory or in disk) in the stack-db that *stacks*
@@ -23,7 +23,7 @@ pub struct Layer<'l, File: Write + Read + Seek> {
     /// - Also indicates if this is a mem-layer or disk-layer
     writer: Option<MemWriter<'l>>,
     /// The total size of all the writes in the layer (limited to `4GiB` currently)
-    pub size: u32,
+    pub size: u64,
     /// The current read cursor to speed up sequential reads
     pub read_cursor: (u64, usize),
     /// The underlying file reader/writer
@@ -61,10 +61,9 @@ impl<'l,  File: Write + Read + Seek> Layer<'l, File> {
     ///
     /// **WARNING:** the layer will be corrupt if there are any collisions; this function is meant to be used internally
     #[inline]
-    pub fn write_unchecked(&mut self, idx: u64, data: &'l impl AsRef<[u8]>) -> Result<(), Error> {
+    pub fn write_unchecked(&mut self, idx: u64, data: Cow<'l, [u8]>) -> Result<(), Error> {
         // cannot write on read-only
         let writer = if let Some(ref mut writer) = self.writer { writer } else { return Err(Error::ReadOnly) };
-        let data = data.as_ref();
         let range = idx..idx+data.len() as u64;
 
         // get the idx ni the map to insert to
@@ -79,9 +78,10 @@ impl<'l,  File: Write + Read + Seek> Layer<'l, File> {
                 .unwrap_or(0) // if map is empty write to the first index
         };
 
-        // insert data into the map & update write cursor
+        // insert data into the map and update write cursor & size
         writer.map.insert(map_idx, (range.clone(), data));
-        writer.write_cursor = (range.end, map_idx);
+        writer.write_cursor = (range.end, map_idx+1);
+        self.size += range.end - range.start;
 
         // Update bounds
         self.bounds = Some(match self.bounds {
@@ -113,6 +113,7 @@ impl<'l,  File: Write + Read + Seek> Layer<'l, File> {
             file.write_all(&data)?;
         }
 
+        file.flush()?;
         Ok(())
     }
 }
