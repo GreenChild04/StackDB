@@ -30,6 +30,13 @@ pub struct MapperIter<'l, Stream: Write + Read + Seek> {
     cursor: u64,
 }
 
+impl<'l> Default for Mapper<'l> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'l> Mapper<'l> {
     /// Creates a new **heap**-based mapper
     #[inline]
@@ -42,7 +49,7 @@ impl<'l> Mapper<'l> {
 
     /// Grabs the internal heap representation; if on disk, throw the `ReadOnly` error
     #[inline]
-    pub fn get_writer(&'l mut self) -> Result<(&'l mut Vec<Section<'l>>, &'l mut (u64, usize)), Error> {
+    pub fn get_writer(&mut self) -> Result<(&mut Vec<Section<'l>>, &mut (u64, usize)), Error> {
         if let Self::Heap { write_cursor, mapper } = self {
             Ok((mapper, write_cursor))
         } else {
@@ -51,7 +58,7 @@ impl<'l> Mapper<'l> {
     }
 
     /// Generates an iterator over the interal mapper
-    pub fn iter<Stream: Read + Write + Seek>(&'l self, stream: &'l mut Stream, size: u64) -> MapperIter<'l, Stream> {
+    pub fn iter<'a, Stream: Read + Write + Seek>(&'a self, stream: &'a mut Stream, size: u64) -> MapperIter<'a, Stream> {
         MapperIter {
             mapper: self,
             stream,

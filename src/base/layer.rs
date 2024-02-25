@@ -108,7 +108,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     ///
     /// **WARNING:** the layer will be corrupt if there are any collisions; this function is meant to be used internally
     #[inline]
-    pub fn write_unchecked(&'l mut self, idx: u64, data: Cow<'l, [u8]>) -> Result<(), Error> {
+    pub fn write_unchecked(&mut self, idx: u64, data: Cow<'l, [u8]>) -> Result<(), Error> {
         // cannot write on read-only
         let (mapper, write_cursor) = self.mapper.get_writer()?;
         let range = idx..idx+data.len() as u64;
