@@ -1,22 +1,16 @@
 use std::{borrow::Cow, io::{BufWriter, Read, Seek, Write}, ops::Range};
 use crate::errors::Error;
 
-/// Represents bytes that are either owned or borrowed
-pub type Bytes<'l> = Cow<'l, [u8]>;
-
-// Holds a range of data that may be partially completed
-pub struct ParitialRange<'l>(pub Box<[(Range<u64>, Bytes<'l>)]>);
-
 /// Holds specific values for the writing function of the layer
 #[derive(Debug)]
 struct MemWriter<'l> {
     /// The current write cursor to speed up sequential qrites
     pub write_cursor: (u64, usize),
     /// The map that holds all the writes to the layer and their location mapping in the database
-    pub map: Vec<(Range<u64>, Bytes<'l>)>, // change this to a linked list if too slow
+    pub map: Vec<(Range<u64>, Cow<'l, [u8]>)>, // change this to a linked list if too slow
 }
 
-/// Represents a layer (either in-memory or in disk) in the stack-db that *stacks*
+/// Represents a layer (either in the heap or disk) in the stack-db that *stacks*
 #[derive(Debug)]
 pub struct Layer<'l, Stream: Write + Read + Seek> {
     /// The bounds of the layer; the range of the layer
@@ -25,7 +19,7 @@ pub struct Layer<'l, Stream: Write + Read + Seek> {
     ///
     /// - Also indicates if this is a mem-layer or disk-layer
     writer: Option<MemWriter<'l>>,
-    /// The total size of all the writes in the layer (limited to `4GiB` currently)
+    /// The total size of all the writes in the layer
     pub size: u64,
     /// The current read cursor to speed up sequential reads
     pub read_cursor: (u64, usize),
@@ -82,17 +76,31 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     pub fn check_collisions(&self, range: Range<u64>) -> Box<[Range<u64>]>{
         let map = if let Some(ref writer) = self.writer { &writer.map } else { panic!("will implement disk layers and disk reads later") };
 
-        map.iter() // I have no clue how this works
+        map.iter()
             .filter(|(r, _)| range.start < r.end && r.start < range.end)
             .map(|(r, _)| range.start.max(r.start)..std::cmp::min(range.end, r.end))
             .collect()
     }
 
-    /// Writes to the mem-layer without checking for collisions
+    /// Takes in the output of the `check_collisions` function to find the inverse
+    #[inline]
+    pub fn check_non_collisions(&self, range: Range<u64>, collisions: &[Range<u64>]) -> Box<[Range<u64>]> { // find a bettr purely functional solution
+        let mut current_end = range.start;
+        let mut output = Vec::new();
+
+        for r in collisions.iter() {
+            output.push(current_end..r.start);
+            current_end = r.start;
+        } output.push(current_end..range.end);
+
+        output.into_boxed_slice()
+    }
+
+    /// Writes to the heap layer without checking for collisions
     ///
     /// **WARNING:** the layer will be corrupt if there are any collisions; this function is meant to be used internally
     #[inline]
-    pub fn write_unchecked(&mut self, idx: u64, data: Bytes<'l>) -> Result<(), Error> {
+    pub fn write_unchecked(&mut self, idx: u64, data: Cow<'l, [u8]>) -> Result<(), Error> {
         // cannot write on read-only
         let writer = if let Some(ref mut writer) = self.writer { writer } else { return Err(Error::ReadOnly) };
         let range = idx..idx+data.len() as u64;
@@ -123,7 +131,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
         Ok(())
     }
 
-    /// Moves the laer from memory to disk
+    /// Moves the layer from the **heap** to **disk**
     pub fn flush(self) -> Result<(), Error> {
         const BUFFER_SIZE: usize = 1024 * 1024 * 4; // 4MiB buffer size
         
