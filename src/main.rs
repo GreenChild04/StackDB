@@ -29,7 +29,7 @@ pub fn main() {
     assert_eq!(&*db.read(12..24).unwrap(), b"hello, world");
 }
 
-fn example_write(layer: &mut Layer<File>) {
+fn example_write<'a>(layer: &'a mut Layer<'a, File>) {
     layer.write_unchecked(4, Cow::Owned(vec![1u8, 2, 3, 4])).unwrap();
     layer.write_unchecked(8, Cow::Borrowed(b"hello, world")).unwrap();
 }
