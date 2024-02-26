@@ -4,6 +4,7 @@ pub enum Error {
     DBCorrupt(Box<Error>),
     ReadOnly,
     InvalidLayer,
+    OutOfBounds,
 }
 
 impl From<std::io::Error> for Error {

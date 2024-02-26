@@ -82,7 +82,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     pub fn check_collisions(&mut self, range: Range<u64>) -> Result<Box<[Range<u64>]>, Error> {
         let mut err = Ok(());
         let out = self.mapper.iter(&mut self.stream, self.size)
-            .scan(&mut err, until_err)
+            .scan(&mut err, until_err) // handles the errors
             .filter(|(r, _)| range.start < r.end && r.start < range.end)
             .map(|(r, _)| range.start.max(r.start)..std::cmp::min(range.end, r.end))
             .collect();
@@ -104,9 +104,25 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
         output.into_boxed_slice()
     }
 
+    /// Reads from the layer unchecked and returns the section data and the desired relative range within the section.
+    ///
+    /// **warning:** will throw `out-of-bounds` error (or undefined behaviour) if the read is  accross two sections *(each read can only be on one section of a layer)*
+    #[inline]
+    pub fn read_unchecked(&'l mut self, addr: Range<u64>) -> Result<(Range<usize>, Cow<'l, [u8]>), Error> {
+        let mut err = Ok(());
+        let out = self.mapper.iter(&mut self.stream, self.size)
+            .scan(&mut err, until_err) // handles errors
+            .find(|(r, _)| r.start <= addr.start && addr.end <= r.end) // read must be equal to or wihtin layer section
+            .map(|(r, x)| ((addr.start-r.start) as usize..(addr.end-r.start) as usize, x));
+        err?;
+        out
+            .map(Ok)
+            .unwrap_or(Err(Error::OutOfBounds))
+    }
+
     /// Writes to the heap layer without checking for collisions
     ///
-    /// **WARNING:** the layer will be corrupt if there are any collisions; this function is meant to be used internally
+    /// **WARNING:** the layer will be corrupt (due to undefiined behaviour) if there are any collisions; this function is meant to be used internally
     #[inline]
     pub fn write_unchecked(&mut self, idx: u64, data: Cow<'l, [u8]>) -> Result<(), Error> {
         // cannot write on read-only

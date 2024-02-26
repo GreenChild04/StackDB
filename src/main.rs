@@ -26,6 +26,18 @@ pub fn main() {
     example_write(&mut layer);
     layer.flush().unwrap();
 
+    let file = File::options()
+        .write(true)
+        .read(true)
+        .append(false)
+        .create(true)
+        .truncate(false)
+        .open("example.skly")
+        .unwrap();
+
+    let mut layer = Layer::load(file).unwrap();
+    println!("{:?}", layer.read_unchecked(5..8).unwrap());
+
     assert_eq!(&*db.read(12..24).unwrap(), b"hello, world");
 }
 
