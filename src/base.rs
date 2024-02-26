@@ -4,3 +4,4 @@
 
 pub mod image;
 pub mod layer;
+pub mod database;

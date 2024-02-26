@@ -108,7 +108,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     ///
     /// **warning:** will throw `out-of-bounds` error (or undefined behaviour) if the read is  accross two sections *(each read can only be on one section of a layer)*
     #[inline]
-    pub fn read_unchecked(&'l mut self, addr: Range<u64>) -> Result<(Range<usize>, Cow<'l, [u8]>), Error> {
+    pub fn read_unchecked(&mut self, addr: Range<u64>) -> Result<(Range<usize>, Cow<[u8]>), Error> {
         let mut err = Ok(());
         let out = self.mapper.iter(&mut self.stream, self.size)
             .scan(&mut err, until_err) // handles errors
@@ -156,12 +156,12 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     }
 
     /// Moves the layer from the **heap** to **disk**
-    pub fn flush(self) -> Result<(), Error> {
+    pub fn flush(&mut self) -> Result<(), Error> {
         const BUFFER_SIZE: usize = 1024 * 1024 * 4; // 4MiB buffer size
         
         // don't flush if it's an empty layer or in read-only mode
-        let (bounds, mapper) = if let (Some(b), Mapper::Heap { mapper, .. }) = (self.bounds, self.mapper) { (b, mapper) } else {  return Ok(()) };
-        let mut file = BufWriter::with_capacity(BUFFER_SIZE, self.stream);
+        let (bounds, mapper) = if let (Some(b), Mapper::Heap { mapper, .. }) = (&self.bounds, &self.mapper) { (b, mapper) } else {  return Ok(()) };
+        let mut file = BufWriter::with_capacity(BUFFER_SIZE, &mut self.stream);
 
         // write the bounds & size of the layer
         file.write_all(&self.size.to_be_bytes())?;
