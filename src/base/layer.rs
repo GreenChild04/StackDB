@@ -106,13 +106,15 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
 
     /// Reads from the layer unchecked and returns the section data and the desired relative range within the section.
     ///
-    /// **warning:** will throw `out-of-bounds` error (or undefined behaviour) if the read is  accross two sections *(each read can only be on one section of a layer)*
+    /// **warning:** will throw `out-of-bounds` error (or undefined behaviour) if the read is accross two sections *(each read can only be on one section of a layer)*
     #[inline]
     pub fn read_unchecked(&mut self, addr: Range<u64>) -> Result<(Range<usize>, Cow<[u8]>), Error> {
+        self.stream.rewind()?; // todo: Actually use the read-cursor so that you don't have to iterate through everything to get to where you want
+        
         let mut err = Ok(());
         let out = self.mapper.iter(&mut self.stream, self.size)
             .scan(&mut err, until_err) // handles errors
-            .find(|(r, _)| r.start <= addr.start && addr.end <= r.end) // read must be equal to or wihtin layer section
+            .find(|(r, _)| r.start <= addr.start && addr.end <= r.end) // read must be equal to or within layer section
             .map(|(r, x)| ((addr.start-r.start) as usize..(addr.end-r.start) as usize, x));
         err?;
         out
@@ -122,7 +124,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
 
     /// Writes to the heap layer without checking for collisions
     ///
-    /// **WARNING:** the layer will be corrupt (due to undefiined behaviour) if there are any collisions; this function is meant to be used internally
+    /// **WARNING:** the layer will be corrupt (due to undefined behaviour) if there are any collisions; this function is meant to be used internally
     #[inline]
     pub fn write_unchecked(&mut self, idx: u64, data: Cow<'l, [u8]>) -> Result<(), Error> {
         // cannot write on read-only
