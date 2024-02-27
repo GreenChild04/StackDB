@@ -38,13 +38,13 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
     }
 
     #[inline]
-    pub fn write(&mut self, addr: u64, data: Box<[u8]>) -> Result<(), Error> {
+    pub fn write(&mut self, addr: u64, data: &[u8]) -> Result<(), Error> {
         let layer = self.get_heap_layer()?;
         let range = addr..addr + data.len() as u64;
         let collisions = layer.check_collisions(&range)?;
 
         let non_collisions = layer.check_non_collisions(&range, &collisions);
-        for r in non_collisions.into_iter() {
+        for r in non_collisions.iter() {
             let r_normal = (r.start-addr)as usize..(r.end-addr)as usize;
             let mut data = data[r_normal].to_vec();
             data.shrink_to_fit();
@@ -55,9 +55,9 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
         // if there are collisions while writing; write them to a new layer
         if !collisions.is_empty() {
             self.flush()?;
-            for r in collisions.into_iter() {
+            for r in collisions.iter() {
                 let r_normal = (r.start-addr)as usize..(r.end-addr)as usize;
-                self.write(r.start, data[r_normal].to_vec().into_boxed_slice())?; // you can make this more efficient by manually rewriting it
+                self.write(r.start, &data[r_normal])?; // you can make this more efficient by manually rewriting it
             }
         }
 

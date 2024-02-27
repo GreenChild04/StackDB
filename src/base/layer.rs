@@ -172,7 +172,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
         for (range, data) in mapper {
             file.write_all(&range.start.to_be_bytes())?;
             file.write_all(&range.end.to_be_bytes())?;
-            file.write_all(&data)?;
+            file.write_all(data)?;
         }
 
         file.flush()?;
