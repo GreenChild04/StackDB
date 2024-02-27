@@ -9,7 +9,7 @@ fn test_read_write() {
     layer.write_unchecked(128, Cow::Borrowed(b"hello, world")).unwrap();
     layer.write_unchecked(4, Cow::Borrowed(&[0, 1, 2, 3, 4, 5, 6, 7, 8])).unwrap();
 
-    assert_eq!(&*layer.read_unchecked(128..140).unwrap().1, b"Hello, world");
+    assert_eq!(&*layer.read_unchecked(128..140).unwrap().1, b"hello, world");
     layer.flush().unwrap();
 
     assert_eq!(&*layer.read_unchecked(4..13).unwrap().1, &[0, 1, 2, 3, 4, 5, 6, 7, 8]);

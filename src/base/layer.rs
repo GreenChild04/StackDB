@@ -81,7 +81,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     #[inline]
     pub fn check_collisions(&mut self, range: &Range<u64>) -> Result<Box<[Range<u64>]>, Error> {
         let mut err = Ok(());
-        let out = self.mapper.iter(&mut self.stream, self.size)
+        let out = self.mapper.iter(&mut self.stream, self.size, 0)?
             .scan(&mut err, until_err) // handles the errors
             .filter(|(r, _)| range.start < r.end && r.start < range.end)
             .map(|(r, _)| range.start.max(r.start)..std::cmp::min(range.end, r.end))
@@ -109,10 +109,9 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     /// **warning:** will throw `out-of-bounds` error (or undefined behaviour) if the read is accross two sections *(each read can only be on one section of a layer)*
     #[inline]
     pub fn read_unchecked(&mut self, addr: Range<u64>) -> Result<(Range<usize>, Cow<[u8]>), Error> {
-        self.stream.rewind()?; // todo: Actually use the read-cursor so that you don't have to iterate through everything to get to where you want
         
         let mut err = Ok(());
-        let out = self.mapper.iter(&mut self.stream, self.size)
+        let out = self.mapper.iter(&mut self.stream, self.size, Self::REWIND_IDX)? // todo: Actually use the read-cursor so that you don't have to iterate through everything to get to where you want
             .scan(&mut err, until_err) // handles errors
             .find(|(r, _)| r.start <= addr.start && addr.end <= r.end) // read must be equal to or within layer section
             .map(|(r, x)| ((addr.start-r.start) as usize..(addr.end-r.start) as usize, x));
@@ -165,6 +164,9 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
         let (bounds, mapper) = if let (Some(b), Mapper::Heap { mapper, .. }) = (&self.bounds, &self.mapper) { (b, mapper) } else {  return Ok(()) };
         let mut file = BufWriter::with_capacity(BUFFER_SIZE, &mut self.stream);
 
+        // write from the start
+        file.rewind()?;
+
         // write the bounds & size of the layer
         file.write_all(&self.size.to_be_bytes())?;
         file.write_all(&bounds.start.to_be_bytes())?;
@@ -177,7 +179,12 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
             file.write_all(data)?;
         }
 
+        // flush file and switch to disk layer
         file.flush()?;
+        self.mapper = Mapper::Disk;
+        
         Ok(())
     }
+
+    pub const REWIND_IDX: u64 = 8 + 8 + 8; // skip the `u64`s: `layer_size`, `layer_bound.start` and `layer_bound.end`
 }

@@ -2,7 +2,6 @@
 
 use std::{borrow::Cow, io::{Read, Seek, Write}};
 use crate::{base::layer::get_u64, errors::Error};
-
 use super::Section;
 
 /// The mapper that holds all the writes to the layer and their location mapping in the database
@@ -57,15 +56,16 @@ impl<'l> Mapper<'l> {
         }
     }
 
-    /// Generates an iterator over the interal mapper
-    pub fn iter<'a, Stream: Read + Write + Seek>(&'a self, stream: &'a mut Stream, size: u64) -> MapperIter<'a, Stream> {
-        MapperIter {
+    /// Generates an iterator over the interal mapper, from the stream, size and layer read cursor position
+    pub fn iter<'a, Stream: Read + Write + Seek>(&'a self, stream: &'a mut Stream, size: u64, cursor: u64) -> Result<MapperIter<'a, Stream>, Error> {
+        stream.seek(std::io::SeekFrom::Start(cursor))?;
+        Ok(MapperIter {
             mapper: self,
             stream,
             size,
             idx: 0,
-            cursor: 0,
-        }
+            cursor,
+        })
     }
 }
 
@@ -84,7 +84,12 @@ impl<'l, Stream: Write + Read + Seek> Iterator for MapperIter<'l, Stream> {
 
     fn next(&mut self) -> Option<Self::Item> { // probably not a issue but, it loads the entire layer section into memory
         Some(Ok(match self.mapper {
-            Mapper::Heap { mapper, .. } => mapper[self.idx].clone(),
+            Mapper::Heap { mapper, .. } => {
+                if self.idx == mapper.len() { return None };
+                let out = mapper[self.idx].clone();
+                self.idx += 1;
+                out
+            },
             Mapper::Disk => {
                 // check for end of layer
                 if self.cursor == self.size { return None };
