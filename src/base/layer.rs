@@ -79,7 +79,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
 
     /// Checks for collisions on the current layer
     #[inline]
-    pub fn check_collisions(&mut self, range: Range<u64>) -> Result<Box<[Range<u64>]>, Error> {
+    pub fn check_collisions(&mut self, range: &Range<u64>) -> Result<Box<[Range<u64>]>, Error> {
         let mut err = Ok(());
         let out = self.mapper.iter(&mut self.stream, self.size)
             .scan(&mut err, until_err) // handles the errors
@@ -92,7 +92,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
 
     /// Takes in the output of the `check_collisions` function to find the inverse
     #[inline]
-    pub fn check_non_collisions(&self, range: Range<u64>, collisions: &[Range<u64>]) -> Box<[Range<u64>]> { // find a bettr purely functional solution
+    pub fn check_non_collisions(&self, range: &Range<u64>, collisions: &[Range<u64>]) -> Box<[Range<u64>]> { // find a bettr purely functional solution
         let mut current_end = range.start;
         let mut output = Vec::new();
 
