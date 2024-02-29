@@ -1,6 +1,6 @@
 //! The user-facing interface for interacting with multiple layers at once
 
-use std::borrow::Cow;
+use std::{borrow::Cow, ops::Range};
 use crate::errors::Error;
 use self::allocator::Allocator;
 use super::layer::Layer;
@@ -26,6 +26,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
         }
     }
 
+    /// Either grabs the heap layer or creates a new one
     #[inline]
     fn get_heap_layer(&mut self) -> Result<&mut Layer<'l, A::LayerStream>, Error> {
         if self.heap_layer {
@@ -37,6 +38,43 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
         self.get_heap_layer()
     }
 
+    /// Reads data from either the heap or disk layers
+    #[inline]
+    pub fn read(&mut self, addr: Range<u64>) -> Result<Box<[u8]>, Error> {
+        let mut data = vec![0u8; (addr.end-addr.start) as usize].into_boxed_slice();
+        let mut missing: Vec<Range<u64>> = vec![addr.clone()]; // data that hasn't been read yet
+
+        #[inline]
+        fn write_into(data: &[u8], out: &mut [u8]) {
+            data.iter()
+                .enumerate()
+                .for_each(|(i, b)| out[i] = *b);
+        }
+
+        for layer in self.layers.iter_mut() {
+            if missing.is_empty() { break };
+            let mut collisions = Vec::new();
+            let mut non_collisions = Vec::new();
+
+            // find the parts of the range that belong to the layer's sections
+            for miss in missing.iter() {
+                collisions.append(&mut layer.check_collisions(miss)?.into_vec());
+                non_collisions.append(&mut layer.check_non_collisions(miss, &collisions).into_vec());
+            } missing = non_collisions;
+
+            // actually read the values
+            for range in collisions.iter() {
+                let read = layer.read_unchecked(range)?;
+                write_into(&read.1[read.0], &mut data[(range.start-addr.start) as usize..(range.end-addr.start) as usize]);
+            }
+        }
+
+        // if !missing.is_empty() { return Err(Error::OutOfBounds) } // note: otherwise it will just return 0s for the areas not covered by layers
+
+        Ok(data)
+    }
+
+    /// Writes data to the heap layer (collisions are fine) (`flush` to commit the heap layers to disk)
     #[inline]
     pub fn write(&mut self, addr: u64, data: &[u8]) -> Result<(), Error> {
         let layer = self.get_heap_layer()?;
@@ -73,6 +111,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
         // Don't flush if layer is empty
         if layer.bounds.is_none() { return Ok(()) };
         layer.flush()?;
+        self.heap_layer = false;
 
         Ok(())
     }

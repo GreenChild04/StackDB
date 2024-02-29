@@ -25,7 +25,7 @@ pub fn main() {
     let mut layer = Layer::new(file);
     example_write(&mut layer);
     layer.flush().unwrap();
-    println!("{:?}", layer.read_unchecked(5..8).unwrap());
+    println!("{:?}", layer.read_unchecked(&(5..8)).unwrap());
 
     assert_eq!(&*db.read(12..24).unwrap(), b"hello, world");
 }

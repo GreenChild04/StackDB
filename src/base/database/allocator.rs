@@ -12,5 +12,5 @@ pub trait Allocator<'l> {
     /// Adds a read-write layer to the database
     fn add_layer(&mut self) -> Result<Layer<'l, Self::LayerStream>, Error>;
     /// Removes a layer from the database
-    fn drop_layer(&mut self) -> Result<Layer<'l, Self::LayerStream>, Error>;
+    fn drop_layer(&mut self) -> Result<(), Error>;
 }
