@@ -34,5 +34,6 @@ fn database_read_write() {
 
     // read tests
     assert_eq!(&*db.read(14..21).unwrap(), b"hello, ");
-    assert_eq!(&*db.read(21..26).unwrap(), b"world!");
+    assert_eq!(&*db.read(21..26).unwrap(), b"world");
+    assert_eq!(&*db.read(14..27).unwrap(), b"hello, world!");
 }

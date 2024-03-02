@@ -2,7 +2,7 @@
 
 use std::{borrow::Cow, io::{Read, Seek, Write}};
 use crate::{base::layer::get_u64, errors::Error};
-use super::Section;
+use super::{Section, REWIND_IDX};
 
 /// The mapper that holds all the writes to the layer and their location mapping in the database
 #[derive(Debug)]
@@ -64,7 +64,7 @@ impl<'l> Mapper<'l> {
             stream,
             size,
             idx: 0,
-            cursor,
+            cursor: cursor - REWIND_IDX,
         })
     }
 }
@@ -100,7 +100,7 @@ impl<'l, Stream: Write + Read + Seek> Iterator for MapperIter<'l, Stream> {
                 let bounds = optres!(get_u64(&buffer, 0..8))..optres!(get_u64(&buffer, 8..16));
 
                 // load layer section data into the heap
-                let size = bounds.end - bounds.start;
+                let size = if let Some(x) = bounds.end.checked_sub(bounds.start) { x } else {return Some(Err(Error::DBCorrupt(Box::new(Error::InvalidLayer)))) };
                 let mut data = vec![0u8; size as usize];
                 optres!(self.stream.read_exact(&mut data));
 

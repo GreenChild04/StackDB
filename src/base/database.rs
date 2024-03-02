@@ -51,7 +51,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
                 .for_each(|(i, b)| out[i] = *b);
         }
 
-        for layer in self.layers.iter_mut() {
+        for layer in self.layers.iter_mut().rev() {
             if missing.is_empty() { break };
             let mut collisions = Vec::new();
             let mut non_collisions = Vec::new();
@@ -107,7 +107,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
     pub fn flush(&mut self) -> Result<(), Error> {
         if !self.heap_layer { return Ok(()) };
 
-        let layer = self.layers.last_mut().take().unwrap();
+        let layer = self.layers.last_mut().unwrap();
         // Don't flush if layer is empty
         if layer.bounds.is_none() { return Ok(()) };
         layer.flush()?;

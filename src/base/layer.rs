@@ -81,7 +81,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     #[inline]
     pub fn check_collisions(&mut self, range: &Range<u64>) -> Result<Box<[Range<u64>]>, Error> {
         let mut err = Ok(());
-        let out = self.mapper.iter(&mut self.stream, self.size, 0)?
+        let out = self.mapper.iter(&mut self.stream, self.size, REWIND_IDX)?
             .scan(&mut err, until_err) // handles the errors
             .filter(|(r, _)| range.start < r.end && r.start < range.end)
             .map(|(r, _)| range.start.max(r.start)..std::cmp::min(range.end, r.end))
@@ -92,14 +92,15 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
 
     /// Takes in the output of the `check_collisions` function to find the inverse
     #[inline]
-    pub fn check_non_collisions(&self, range: &Range<u64>, collisions: &[Range<u64>]) -> Box<[Range<u64>]> { // find a bettr purely functional solution
+    pub fn check_non_collisions(&self, range: &Range<u64>, collisions: &[Range<u64>]) -> Box<[Range<u64>]> { // find a better purely functional solution
         let mut current_end = range.start;
         let mut output = Vec::new();
 
         for r in collisions.iter() {
-            output.push(current_end..r.start);
-            current_end = r.start;
-        } output.push(current_end..range.end);
+            if current_end != r.start {
+                output.push(current_end..r.start);
+            } current_end = r.end;
+        } if current_end != range.end { output.push(current_end..range.end) };
 
         output.into_boxed_slice()
     }
@@ -111,7 +112,7 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     pub fn read_unchecked(&mut self, addr: &Range<u64>) -> Result<(Range<usize>, Cow<[u8]>), Error> {
         
         let mut err = Ok(());
-        let out = self.mapper.iter(&mut self.stream, self.size, Self::REWIND_IDX)? // todo: Actually use the read-cursor so that you don't have to iterate through everything to get to where you want
+        let out = self.mapper.iter(&mut self.stream, self.size, REWIND_IDX)? // todo: Actually use the read-cursor so that you don't have to iterate through everything to get to where you want
             .scan(&mut err, until_err) // handles errors
             .find(|(r, _)| r.start <= addr.start && addr.end <= r.end) // read must be equal to or within layer section
             .map(|(r, x)| ((addr.start-r.start) as usize..(addr.end-r.start) as usize, x));
@@ -185,6 +186,6 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
         
         Ok(())
     }
-
-    pub const REWIND_IDX: u64 = 8 + 8 + 8; // skip the `u64`s: `layer_size`, `layer_bound.start` and `layer_bound.end`
 }
+
+pub const REWIND_IDX: u64 = 8 + 8 + 8; // skip the `u64`s: `layer_size`, `layer_bound.start` and `layer_bound.end`
