@@ -11,6 +11,8 @@ pub trait Allocator<'l> {
     fn load_layers(&self) -> Result<Vec<Layer<'l, Self::LayerStream>>, Error>;
     /// Adds a read-write layer to the database
     fn add_layer(&mut self) -> Result<Layer<'l, Self::LayerStream>, Error>;
-    /// Removes a layer from the database
-    fn drop_layer(&mut self) -> Result<(), Error>;
-}
+    /// Removes the top layer from the database
+    fn drop_top_layer(&mut self) -> Result<(), Error>;
+    /// Removes the bottom layer from the database
+    fn drop_bottom_layer(&mut self) -> Result<(), Error>;
+ }

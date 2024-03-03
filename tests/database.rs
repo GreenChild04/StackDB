@@ -15,7 +15,11 @@ impl Allocator<'static> for Alloc {
         Ok(Layer::new(Cursor::new(vec![0u8; 256].into_boxed_slice())))
     }
 
-    fn drop_layer(&mut self) -> Result<(), stack_db::errors::Error> {
+    fn drop_bottom_layer(&mut self) -> Result<(), stack_db::errors::Error> {
+        Ok(())
+    }
+
+    fn drop_top_layer(&mut self) -> Result<(), stack_db::errors::Error> {
         Ok(())
     }
 }
@@ -35,5 +39,6 @@ fn database_read_write() {
     // read tests
     assert_eq!(&*db.read(14..21).unwrap(), b"hello, ");
     assert_eq!(&*db.read(21..26).unwrap(), b"world");
+    db.rebase(256).unwrap();
     assert_eq!(&*db.read(14..27).unwrap(), b"hello, world!");
 }

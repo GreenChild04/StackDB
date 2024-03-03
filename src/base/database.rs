@@ -6,7 +6,8 @@ use self::allocator::Allocator;
 use super::layer::Layer;
 pub mod allocator;
 
-#[derive(Debug)] pub struct StackDB<'l, A: Allocator<'l>> {
+#[derive(Debug)]
+pub struct StackDB<'l, A: Allocator<'l>> {
     /// The layer allocator for the database
     alloc: A,
     /// If there is a heap layer or not
@@ -72,6 +73,39 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
         // if !missing.is_empty() { return Err(Error::OutOfBounds) } // note: otherwise it will just return 0s for the areas not covered by layers
 
         Ok(data)
+    }
+
+    /// Rebases and drops overwritten layers (the database history)
+    /// by compressing all the layers into one to save space
+    ///
+    /// **Warning:** will temporarity double database size
+    #[inline]
+    pub fn rebase(&mut self, buffer_size: u64) -> Result<(), Error> {
+        if self.layers.is_empty() || self.layers.last().unwrap().bounds.is_none() { return Ok(()) }; // do nothing if database is empty
+        self.flush()?;
+
+        let db_bounds = self.layers.iter()
+            .filter_map(|x| x.bounds.as_ref())
+            .fold((u64::MAX, u64::MIN), |x, y| (std::cmp::min(x.0, y.start), std::cmp::max(x.1, y.end)));
+        let db_bounds = db_bounds.0..db_bounds.1;
+        
+        // Write all the changes into the top layer
+        let mut idx = db_bounds.start;
+        while idx < db_bounds.end {
+            let end = std::cmp::min(db_bounds.end, idx+buffer_size);
+            let buffer = self.read(idx..end)?;
+            self.write(idx, &buffer)?;
+            idx = end;
+        }
+
+        // Drop all the other layers
+        let mut bottom_layers = std::mem::take(&mut self.layers);
+        self.layers.push(bottom_layers.pop().unwrap());
+        for _ in 0..bottom_layers.len() {
+            self.alloc.drop_bottom_layer()?;
+        }
+
+        Ok(())
     }
 
     /// Writes data to the heap layer (collisions are fine) (`flush` to commit the heap layers to disk)

@@ -80,6 +80,12 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     /// Checks for collisions on the current layer
     #[inline]
     pub fn check_collisions(&mut self, range: &Range<u64>) -> Result<Box<[Range<u64>]>, Error> {
+        // if range not even in bounds or layer empty; return 
+        match self.bounds.as_ref() {
+            Some(bounds) => if bounds.end < range.start || range.end < bounds.start { return Ok(Box::new([])) },
+            None => return Ok(Box::new([])),
+        }
+        
         let mut err = Ok(());
         let out = self.mapper.iter(&mut self.stream, self.size, REWIND_IDX)?
             .scan(&mut err, until_err) // handles the errors
