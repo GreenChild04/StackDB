@@ -83,6 +83,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
     pub fn rebase(&mut self, buffer_size: u64) -> Result<(), Error> {
         if self.layers.is_empty() || self.layers.last().unwrap().bounds.is_none() { return Ok(()) }; // do nothing if database is empty
         self.flush()?;
+        let old_layers = self.layers.len();
 
         let db_bounds = self.layers.iter()
             .filter_map(|x| x.bounds.as_ref())
@@ -95,15 +96,13 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
             let end = std::cmp::min(db_bounds.end, idx+buffer_size);
             let buffer = self.read(idx..end)?;
             self.write(idx, &buffer)?;
+            self.flush()?; // as to not bomb your memory
             idx = end;
         }
 
         // Drop all the other layers
-        let mut bottom_layers = std::mem::take(&mut self.layers);
-        self.layers.push(bottom_layers.pop().unwrap());
-        for _ in 0..bottom_layers.len() {
-            self.alloc.drop_bottom_layer()?;
-        }
+        self.alloc.rebase(old_layers)?;
+        self.layers = self.alloc.load_layers()?;
 
         Ok(())
     }

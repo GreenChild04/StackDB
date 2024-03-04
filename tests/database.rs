@@ -1,32 +1,11 @@
 //! base-database tests
 
 use std::io::Cursor;
-use stack_db::base::{database::{allocator::Allocator, StackDB}, layer::Layer};
-
-pub struct Alloc;
-impl Allocator<'static> for Alloc {
-    type LayerStream = Cursor<Box<[u8]>>;
-    
-    fn load_layers(&self) -> Result<Vec<stack_db::base::layer::Layer<'static, Self::LayerStream>>, stack_db::errors::Error> {
-        Ok(Vec::new())
-    }
-
-    fn add_layer(&mut self) -> Result<Layer<'static, Self::LayerStream>, stack_db::errors::Error> {
-        Ok(Layer::new(Cursor::new(vec![0u8; 256].into_boxed_slice())))
-    }
-
-    fn drop_bottom_layer(&mut self) -> Result<(), stack_db::errors::Error> {
-        Ok(())
-    }
-
-    fn drop_top_layer(&mut self) -> Result<(), stack_db::errors::Error> {
-        Ok(())
-    }
-}
+use stack_db::{base::{database::{allocator::Allocator, StackDB}, layer::Layer}, default::alloc::SkdbMemAlloc};
 
 #[test]
 fn database_read_write() {
-    let mut db = StackDB::new(Alloc);
+    let mut db = StackDB::new(SkdbMemAlloc);
 
     // write tests
     db.write(14, b"Hello, ").unwrap();

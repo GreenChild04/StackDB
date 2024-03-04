@@ -13,6 +13,6 @@ pub trait Allocator<'l> {
     fn add_layer(&mut self) -> Result<Layer<'l, Self::LayerStream>, Error>;
     /// Removes the top layer from the database
     fn drop_top_layer(&mut self) -> Result<(), Error>;
-    /// Removes the bottom layer from the database
-    fn drop_bottom_layer(&mut self) -> Result<(), Error>;
+    /// Removes all the bottom layers except for the one specified (and above)
+    fn rebase(&mut self, top_layer: usize) -> Result<(), Error>;
  }

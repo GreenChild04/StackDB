@@ -2,6 +2,5 @@
 //!
 //! (Only deals with **binary data** and **indexes**, like *memory*)
 
-pub mod image;
 pub mod layer;
 pub mod database;

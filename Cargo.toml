@@ -1,6 +1,6 @@
 [package]
 name = "stack-db"
-version = "0.2.0"
+version = "0.3.0-not-ready-yet-all-the-tests-are-failing-help"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "A (basically) infinitely stacking & extendable CoW database that has both readonly safety and incredible write speeds at the same time."
