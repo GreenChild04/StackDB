@@ -1,7 +1,6 @@
 //! base-database tests
 
-use std::io::Cursor;
-use stack_db::{base::{database::{allocator::Allocator, StackDB}, layer::Layer}, default::alloc::SkdbMemAlloc};
+use stack_db::{base::database::StackDB, default::alloc::SkdbMemAlloc};
 
 #[test]
 fn database_read_write() {

@@ -116,7 +116,6 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     /// **warning:** will throw `out-of-bounds` error (or undefined behaviour) if the read is accross two sections *(each read can only be on one section of a layer)*
     #[inline]
     pub fn read_unchecked(&mut self, addr: &Range<u64>) -> Result<(Range<usize>, Cow<[u8]>), Error> {
-        
         let mut err = Ok(());
         let out = self.mapper.iter(&mut self.stream, self.size, REWIND_IDX)? // todo: Actually use the read-cursor so that you don't have to iterate through everything to get to where you want
             .scan(&mut err, until_err) // handles errors

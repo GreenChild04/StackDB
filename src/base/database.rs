@@ -102,7 +102,9 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
 
         // Drop all the other layers
         self.alloc.rebase(old_layers)?;
-        self.layers = self.alloc.load_layers()?;
+        let mut layers = Vec::with_capacity(self.layers.len()-old_layers);
+        layers.extend(self.layers.drain(old_layers..));
+        self.layers = layers;
 
         Ok(())
     }

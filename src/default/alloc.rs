@@ -1,6 +1,6 @@
 //! Some default `stack-db` allocator implementations
 
-use std::{fs::{self, File}, io::Cursor, path::PathBuf};
+use std::{fs::{self, File}, io::Cursor, path::{Path, PathBuf}};
 use crate::{base::{database::allocator::Allocator, layer::Layer}, errors::Error};
 
 /// # In-Memory Allocator
@@ -39,10 +39,12 @@ pub struct SkdbDirAlloc {
 }
 impl SkdbDirAlloc {
     /// Creates a new SkDB
-    pub fn new(path: PathBuf) -> Result<Self, Error> {
-        fs::create_dir_all(&path)?;
+    pub fn new(path: impl AsRef<Path>) -> Result<Self, Error> {
+        let path = path.as_ref();
+
+        fs::create_dir_all(path)?;
         Ok(Self {
-            path,
+            path: path.to_path_buf(),
             layers: Vec::new(),
             cursor: 0,
         })
@@ -52,7 +54,7 @@ impl SkdbDirAlloc {
     pub fn load(path: PathBuf) -> Result<Self, Error> {
         // grab file paths
         let mut file_paths = Vec::new();
-        for entry in fs::read_dir(&path)?.into_iter() {
+        for entry in fs::read_dir(&path)? {
             let entry = entry?;
             if entry.file_type()?.is_file() {
                 file_paths.push(entry.path());
