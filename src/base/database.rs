@@ -59,8 +59,11 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
 
             // find the parts of the range that belong to the layer's sections
             for miss in missing.iter() {
-                collisions.append(&mut layer.check_collisions(miss)?.into_vec());
-                non_collisions.append(&mut layer.check_non_collisions(miss, &collisions).into_vec());
+                let mut miss_collisions = layer.check_collisions(miss)?;
+                miss_collisions.sort_unstable_by_key(|r| r.start); // for later: fix the collisions function so that it's automatically sorted.
+
+                non_collisions.append(&mut layer.check_non_collisions(miss, &miss_collisions).into_vec());
+                collisions.append(&mut miss_collisions.into_vec());
             } missing = non_collisions;
 
             // actually read the values

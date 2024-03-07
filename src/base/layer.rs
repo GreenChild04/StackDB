@@ -96,19 +96,21 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
         Ok(out)
     }
 
-    /// Takes in the output of the `check_collisions` function to find the inverse
+    /// Takes in the **ordered** output of the `check_collisions` function to find the inverse
     #[inline]
     pub fn check_non_collisions(&self, range: &Range<u64>, collisions: &[Range<u64>]) -> Box<[Range<u64>]> { // find a better purely functional solution
-        let mut current_end = range.start;
         let mut output = Vec::new();
+        let mut last_end = range.start;
 
         for r in collisions.iter() {
-            if current_end != r.start {
-                output.push(current_end..r.start);
-            } current_end = r.end;
-        } if current_end != range.end { output.push(current_end..range.end) };
+            if r.start > last_end {
+                output.push(last_end..r.start);
+            } last_end = r.end;
+        }
 
-        output.into_boxed_slice()
+        if last_end != range.end {
+            output.push(last_end..range.end);
+        } output.into_boxed_slice()
     }
 
     /// Reads from the layer unchecked and returns the section data and the desired relative range within the section.
