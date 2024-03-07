@@ -1,5 +1,5 @@
 # stack-db
-> A (basically) infinitely stacking database that has both readonly safety and incredible write speeds at the same time.
+> A (basically) infinitely stacking & extendable CoW database that has both readonly safety and incredible write speeds at the same time.
 
 ## Examples
 ---
@@ -9,7 +9,7 @@ Here is a basic in-memory database that only deals with binary indexes and data 
 use stack_db::prelude::*;
 
 let allocator = SkdbMemAlloc; // or `SkdbDiskAlloc::new()`
-let mut database = StackDB::new(allocator);
+let mut database = StackDB::new(allocator).unwrap();
 
 // writing
 database.write(256, b"hello, ").unwrap();

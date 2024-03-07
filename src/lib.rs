@@ -9,7 +9,7 @@
 //! use stack_db::prelude::*;
 //! 
 //! let allocator = SkdbMemAlloc; // or `SkdbDiskAlloc::new()`
-//! let mut database = StackDB::new(allocator);
+//! let mut database = StackDB::new(allocator).unwrap();
 //! 
 //! // writing
 //! database.write(256, b"hello, ").unwrap();

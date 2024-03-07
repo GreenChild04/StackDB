@@ -4,7 +4,7 @@ use stack_db::{base::database::StackDB, default::alloc::SkdbMemAlloc};
 
 #[test]
 fn database_read_write() {
-    let mut db = StackDB::new(SkdbMemAlloc);
+    let mut db = StackDB::new(SkdbMemAlloc).unwrap();
 
     // write tests
     db.write(14, b"Hello, ").unwrap();

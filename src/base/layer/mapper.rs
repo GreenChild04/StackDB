@@ -96,7 +96,11 @@ impl<'l, Stream: Write + Read + Seek> Iterator for MapperIter<'l, Stream> {
                 
                 // read bounds
                 let mut buffer = [0u8; (u64::BITS as usize/8) * 2]; // buffer for two `u64` values: `bounds.start` & `bounds.end`
-                optres!(self.stream.read_exact(&mut buffer));
+                match self.stream.read_exact(&mut buffer) {
+                    Ok(_) => (),
+                    Err(_) => return Some(Err(Error::DBCorrupt(Box::new(Error::InvalidLayer)))),
+                }
+
                 let bounds = optres!(get_u64(&buffer, 0..8))..optres!(get_u64(&buffer, 8..16));
 
                 // load layer section data into the heap

@@ -19,12 +19,12 @@ pub struct StackDB<'l, A: Allocator<'l>> {
 impl<'l, A: Allocator<'l>> StackDB<'l, A> {
     /// creates a database interface; either loads an existing db or creates a new one.
     #[inline]
-    pub fn new(alloc: A) -> Self {
-        Self {
-            alloc,
+    pub fn new(alloc: A) -> Result<Self, Error> {
+        Ok(Self {
             heap_layer: false,
-            layers: Vec::new(),
-        }
+            layers: alloc.load_layers()?,
+            alloc,
+        })
     }
 
     /// Either grabs the heap layer or creates a new one
@@ -73,7 +73,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
             }
         }
 
-        // if !missing.is_empty() { return Err(Error::OutOfBounds) } // note: otherwise it will just return 0s for the areas not covered by layers
+        if !missing.is_empty() { return Err(Error::OutOfBounds) } // note: otherwise it will just return 0s for the areas not covered by layers
 
         Ok(data)
     }

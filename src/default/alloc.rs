@@ -51,7 +51,7 @@ impl SkdbDirAlloc {
     }
     
     /// Loads a Skdb from a directory
-    pub fn load(path: PathBuf) -> Result<Self, Error> {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self, Error> {
         // grab file paths
         let mut file_paths = Vec::new();
         for entry in fs::read_dir(&path)? {
@@ -67,7 +67,7 @@ impl SkdbDirAlloc {
             .filter_map(|(i, file)| file.file_name().map(|x| (x.to_string_lossy(), i)))
             .filter_map(|(name, i)| name.parse::<u32>().ok().map(|x| (x, i)))
             .collect::<Vec<(u32, usize)>>();
-        layers.sort_by(|x, y| x.0.cmp(&y.0));
+        layers.sort_unstable_by_key(|x| x.0);
 
         let cursor = layers.last().map(|x| x.0 + 1).unwrap_or(0);
         let layers = layers.into_iter()
@@ -76,7 +76,7 @@ impl SkdbDirAlloc {
 
         // return self
         Ok(Self {
-            path,
+            path: path.as_ref().to_path_buf(),
             layers,
             cursor,
         })
@@ -95,7 +95,7 @@ impl<'a> Allocator<'a> for SkdbDirAlloc {
                 .append(false)
                 .truncate(false)
                 .open(path)?;
-            layers.push(Layer::new(file));
+            layers.push(Layer::load(file)?);
         } Ok(layers)
     }
 
@@ -106,7 +106,8 @@ impl<'a> Allocator<'a> for SkdbDirAlloc {
             .write(true)
             .append(false)
             .truncate(false)
-            .create_new(true) .open(&path)?;
+            .create_new(true)
+            .open(&path)?;
         self.cursor += 1;
         self.layers.push(path);
         Ok(Layer::new(file))

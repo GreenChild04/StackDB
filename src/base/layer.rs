@@ -61,7 +61,10 @@ impl<'l,  Stream: Write + Read + Seek> Layer<'l, Stream> {
     #[inline]
     pub fn load(mut stream: Stream) -> Result<Self, Error> {
         let mut buffer = [0u8; (u64::BITS as usize/8) * 3]; // buffer for three `u64` values: `size`, `bounds.start`, `bounds.end`
-        stream.read_exact(&mut buffer)?;
+        match stream.read_exact(&mut buffer) {
+            Ok(_) => (),
+            Err(_) => return Err(Error::DBCorrupt(Box::new(Error::InvalidLayer))),
+        };
 
 
         // read metadata; return corruption error if failure
