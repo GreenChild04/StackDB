@@ -1,11 +1,11 @@
 [package]
 name = "stack-db"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "A (basically) infinitely stacking & extendable CoW database that has both readonly safety and incredible write speeds at the same time."
-authors = [ "GreenChild04" ]
-repository = "https://github.com/GreenChild04/stack-db"
+authors = [ "kalscium <kalscium@protonmail.com>" ]
+repository = "https://github.com/kalscium/stack-db"
 keywords = [ "database", "stack", "readonly-history" ]
 categories = [ "database" ]
 
