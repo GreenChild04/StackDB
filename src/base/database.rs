@@ -117,16 +117,12 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
     pub fn write(&mut self, addr: u64, data: &[u8]) -> Result<(), Error> {
         let layer = self.get_heap_layer()?;
         let range = addr..addr + data.len() as u64;
-        let collisions = layer.check_collisions(&range)?;
 
-        let non_collisions = layer.check_non_collisions(&range, &collisions);
-        for r in non_collisions.iter() {
-            let r_normal = (r.start-addr)as usize..(r.end-addr)as usize;
-            let mut data = data[r_normal].to_vec();
-            data.shrink_to_fit();
+        let r_normal = (range.start-addr)as usize..(range.end-addr)as usize;
+        let mut data = data[r_normal].to_vec();
+        data.shrink_to_fit();
 
-            layer.write_unchecked(r.start, Cow::Owned(data))?;
-        }
+        layer.write_unchecked(range.start, Cow::Owned(data))?;
 
         Ok(())
     }

@@ -10,9 +10,9 @@ fn database_read_write() {
     db.write(14, b"Hello, ").unwrap();
     db.write(14, b"hello, ").unwrap();
     db.write(21, b"World").unwrap();
-    db.flush().unwrap();
+    db.commit().unwrap();
     db.write(21, b"world!").unwrap();
-    db.flush().unwrap();
+    db.commit().unwrap();
 
     // read tests
     assert_eq!(&*db.read(14..21).unwrap(), b"hello, ");

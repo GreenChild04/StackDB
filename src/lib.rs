@@ -18,16 +18,16 @@
 //! // reading
 //! assert_eq!(&*database.read(256..268).unwrap(), b"hello, world");
 //! 
-//! // flush to save all changes
-//! database.flush().unwrap();
+//! // commit to save all changes
+//! database.commit().unwrap();
 //! 
 //! // over-writting
 //! database.write(256, b"H").unwrap();
 //! database.write(256+7, b"W").unwrap();
 //! database.write(268, b"!").unwrap();
 //! 
-//! // flush again
-//! database.flush().unwrap();
+//! // commit again
+//! database.commit().unwrap();
 //! 
 //! // reading
 //! assert_eq!(&*database.read(256..269).unwrap(), b"Hello, World!");
