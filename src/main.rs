@@ -12,7 +12,7 @@ fn main() {
     assert_eq!(&*database.read(256..268).unwrap(), b"hello, world");
 
     // flush to save all changes
-    database.flush().unwrap();
+    database.commit().unwrap();
 
     // over-writting
     database.write(256, b"H").unwrap();
@@ -20,7 +20,7 @@ fn main() {
     database.write(268, b"!").unwrap();
 
     // flush again
-    database.flush().unwrap();
+    database.commit().unwrap();
 
     let mut database = StackDB::new(SkdbDirAlloc::load("db.skdb").unwrap()).unwrap();
 

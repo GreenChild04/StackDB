@@ -85,7 +85,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
     #[inline]
     pub fn rebase(&mut self, buffer_size: u64) -> Result<(), Error> {
         if self.layers.is_empty() || self.layers.last().unwrap().bounds.is_none() { return Ok(()) }; // do nothing if database is empty
-        self.flush()?;
+        self.commit()?;
         let old_layers = self.layers.len();
 
         let db_bounds = self.layers.iter()
@@ -99,7 +99,7 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
             let end = std::cmp::min(db_bounds.end, idx+buffer_size);
             let buffer = self.read(idx..end)?;
             self.write(idx, &buffer)?;
-            self.flush()?; // as to not bomb your memory
+            self.commit()?; // as to not bomb your memory
             idx = end;
         }
 
@@ -128,21 +128,12 @@ impl<'l, A: Allocator<'l>> StackDB<'l, A> {
             layer.write_unchecked(r.start, Cow::Owned(data))?;
         }
 
-        // if there are collisions while writing; write them to a new layer
-        if !collisions.is_empty() {
-            self.flush()?;
-            for r in collisions.iter() {
-                let r_normal = (r.start-addr)as usize..(r.end-addr)as usize;
-                self.write(r.start, &data[r_normal])?; // you can make this more efficient by manually rewriting it
-            }
-        }
-
         Ok(())
     }
 
-    /// Commits / writes the read-write layer's (on the heap) writes to the database (on the disk)
+    /// Commits / writes the read-write layer's (on the heap) writes to the database (on the disk); making it read-only
     #[inline]
-    pub fn flush(&mut self) -> Result<(), Error> {
+    pub fn commit(&mut self) -> Result<(), Error> {
         if !self.heap_layer { return Ok(()) };
 
         let layer = self.layers.last_mut().unwrap();
